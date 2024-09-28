@@ -18,9 +18,13 @@ pub struct RebelClient {
 }
 
 impl RebelClient {
-    pub async fn new(instance_name: &str) -> Result<RebelClient> {
-        let execute_client = ExecutionClient::connect("http://[::1]:8980").await?;
-        let cas_client = ContentAddressableStorageClient::connect("http://[::1]:8980").await?;
+    pub async fn new<U>(url: U, instance_name: &str) -> Result<RebelClient>
+    where
+        U: TryInto<tonic::transport::Endpoint> + Send + Clone,
+        U::Error: std::error::Error + Send + Sync + 'static,
+    {
+        let execute_client = ExecutionClient::connect(url.clone()).await?;
+        let cas_client = ContentAddressableStorageClient::connect(url.clone()).await?;
         Ok(RebelClient {
             instance_name: instance_name.to_string(),
             cas_client,
@@ -32,7 +36,7 @@ impl RebelClient {
         let batch_update_blobs_resp = self
             .cas_client
             .batch_update_blobs(BatchUpdateBlobsRequest {
-                instance_name: "remote-execution".to_string(),
+                instance_name: self.instance_name.clone(),
                 requests: vec![proto::batch_update_blobs_request::Request {
                     digest: Some(blob.digest),
                     data: blob.inner,
